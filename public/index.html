@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Management System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #232A26;
+    --ink-soft: #6B7268;
+    --paper: #F3EFE3;
+    --paper-dim: #E9E3D2;
+    --line: #D6CEB6;
+    --white: #FCFAF3;
+    --progress: #3E6E6E;
+    --progress-dark: #2C5252;
+    --review: #B4813C;
+    --blocked: #A6503A;
+    --done: #5C7A50;
+    --serif: 'Source Serif 4', Georgia, serif;
+    --sans: 'Inter', -apple-system, sans-serif;
+    --radius: 3px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: var(--sans); color: var(--ink);
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 34px, rgba(35,42,38,0.05) 34px 35px);
+  }
+  :focus-visible { outline: 2px solid var(--progress); outline-offset: 2px; }
+
+  header {
+    padding: 22px 28px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center; background: var(--paper);
+  }
+  .brandmark { display: flex; align-items: center; gap: 10px; }
+  .brandmark svg { flex-shrink: 0; }
+  header h1 { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; margin: 0; letter-spacing: -0.01em; }
+  .userbox { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--ink-soft); }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--progress); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;
+    font-family: var(--serif); flex-shrink: 0;
+  }
+
+  button {
+    cursor: pointer; border-radius: var(--radius); border: 1px solid transparent;
+    padding: 9px 16px; font-weight: 600; font-size: 0.85rem; font-family: var(--sans);
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); box-shadow: 0 1px 2px rgba(35,42,38,0.15); }
+  .btn-primary:hover { background: var(--progress-dark); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(35,42,38,0.18); }
+  .btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+  .btn-ghost:hover { border-color: var(--ink-soft); background: var(--paper-dim); }
+  input, select, textarea {
+    font-family: inherit; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--white); color: var(--ink); font-size: 0.88rem; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--progress); }
+
+  /* Auth screen */
+  #authScreen {
+    max-width: 360px; margin: 90px auto; padding: 30px; background: var(--white);
+    border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px rgba(35,42,38,0.08);
+  }
+  #authScreen h2 { font-family: var(--serif); font-weight: 600; margin: 0 0 4px; font-size: 1.4rem; }
+  #authScreen .tagline { color: var(--ink-soft); font-size: 0.85rem; margin: 0 0 20px; }
+  #authScreen .field { margin-bottom: 13px; display: flex; flex-direction: column; gap: 5px; }
+  #authScreen .field label { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+  #authError { color: var(--blocked); font-size: 0.82rem; min-height: 18px; margin-bottom: 6px; }
+  #authScreen .switchmode { font-size: 0.82rem; text-align: center; margin-top: 14px; color: var(--ink-soft); }
+  #authScreen .switchmode a { color: var(--progress); cursor: pointer; text-decoration: underline; }
+
+  /* Board */
+  #appScreen { display: none; }
+  main { padding: 22px 28px 60px; max-width: 1320px; margin: 0 auto; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .board { display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: 16px; }
+  @media (max-width: 1000px) { .board { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .board { grid-template-columns: 1fr; } }
+
+  .column { background: var(--white); border: 1px solid var(--line); border-radius: 6px; min-height: 150px; border-top: 3px solid var(--ink-soft); box-shadow: 0 1px 3px rgba(35,42,38,0.05); }
+  .column[data-status="in_progress"] { border-top-color: var(--progress); }
+  .column[data-status="in_review"] { border-top-color: var(--review); }
+  .column[data-status="blocked"] { border-top-color: var(--blocked); }
+  .column[data-status="done"] { border-top-color: var(--done); }
+
+  .column-head {
+    padding: 11px 13px; border-bottom: 1px solid var(--line); display: flex;
+    justify-content: space-between; align-items: baseline;
+  }
+  .column-head span:first-child { font-size: 0.86rem; font-weight: 700; }
+  .count-badge {
+    font-family: var(--serif); font-size: 0.85rem; font-weight: 600; color: var(--ink-soft);
+  }
+  .cards { padding: 10px; display: flex; flex-direction: column; gap: 9px; min-height: 50px; }
+
+  .card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 11px 12px; border-left: 3px solid var(--ink-soft);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover { box-shadow: 0 2px 6px rgba(35,42,38,0.08); transform: translateY(-1px); }
+  .card[data-priority="high"] { border-left-color: var(--blocked); }
+  .card[data-priority="med"] { border-left-color: var(--review); }
+  .card[data-priority="low"] { border-left-color: var(--done); }
+  .card-title { font-size: 0.9rem; font-weight: 600; line-height: 1.35; }
+  .card-desc { font-size: 0.78rem; color: var(--ink-soft); margin-top: 5px; line-height: 1.4; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 7px; }
+  .prio-label { font-size: 0.7rem; color: var(--ink-soft); }
+  .card-actions { display: flex; gap: 4px; margin-top: 9px; flex-wrap: wrap; align-items: center; }
+  .card-actions select { font-size: 0.72rem; padding: 4px 6px; width: auto; }
+  .card-actions button { font-size: 0.72rem; padding: 4px 9px; width: auto; }
+
+  .empty-hint { padding: 16px 10px; text-align: center; font-size: 0.78rem; color: var(--ink-soft); border: 1px dashed var(--line); border-radius: var(--radius); }
+
+  .overlay { position: fixed; inset: 0; background: rgba(30,26,20,0.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: 6px; padding: 22px; width: 100%; max-width: 400px; border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(35,42,38,0.15); }
+  .modal h3 { font-family: var(--serif); margin: 0 0 14px; font-size: 1.25rem; font-weight: 600; }
+  .modal .field { margin-bottom: 11px; }
+  .modal .field label { font-size: 0.76rem; font-weight: 600; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <h2 id="authTitle">Log in</h2>
+  <p class="tagline">Plan, track, and move your work forward.</p>
+  <div id="authError"></div>
+  <form id="authForm">
+    <div class="field"><label>Username</label><input type="text" id="authUsername" required autocomplete="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" required autocomplete="current-password"></div>
+    <button type="submit" class="btn-primary" style="width:100%">Log in</button>
+  </form>
+  <div class="switchmode">Don't have an account? <a id="switchToRegister">Register</a></div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen">
+  <header>
+    <div class="brandmark">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="18" height="18" rx="4" stroke="#232A26" stroke-width="1.6"/>
+        <path d="M7.5 12.5L10 15L16.5 8.5" stroke="#3E6E6E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Task Management System</h1>
+    </div>
+    <div class="userbox">
+      <span class="avatar" id="avatar"></span>
+      <span id="whoami"></span>
+      <button class="btn-ghost" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+  <main>
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="Search tasks…" style="max-width:220px">
+      <button class="btn-primary" id="newTaskBtn">+ New task</button>
+    </div>
+    <div class="board" id="board">
+      <div class="column" data-status="todo"><div class="column-head"><span>To do</span><span class="count-badge" id="count-todo">0</span></div><div class="cards" id="cards-todo"></div></div>
+      <div class="column" data-status="in_progress"><div class="column-head"><span>In progress</span><span class="count-badge" id="count-in_progress">0</span></div><div class="cards" id="cards-in_progress"></div></div>
+      <div class="column" data-status="in_review"><div class="column-head"><span>In review</span><span class="count-badge" id="count-in_review">0</span></div><div class="cards" id="cards-in_review"></div></div>
+      <div class="column" data-status="blocked"><div class="column-head"><span>Blocked</span><span class="count-badge" id="count-blocked">0</span></div><div class="cards" id="cards-blocked"></div></div>
+      <div class="column" data-status="done"><div class="column-head"><span>Done</span><span class="count-badge" id="count-done">0</span></div><div class="cards" id="cards-done"></div></div>
+    </div>
+  </main>
+</div>
+
+<!-- NEW/EDIT TASK MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">New task</h3>
+    <form id="taskForm">
+      <div class="field"><label>Title</label><input type="text" id="f-title" required maxlength="80"></div>
+      <div class="field"><label>Description</label><textarea id="f-desc" maxlength="280"></textarea></div>
+      <div class="field"><label>Priority</label>
+        <select id="f-priority"><option value="med">Medium</option><option value="high">High</option><option value="low">Low</option></select>
+      </div>
+      <div class="field"><label>Due date</label><input type="date" id="f-due"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn-primary">Save task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API = ''; // same origin — server serves this file and the API
+  const STATUSES = ['todo', 'in_progress', 'in_review', 'blocked', 'done'];
+  const LABEL = { todo: 'To do', in_progress: 'In progress', in_review: 'In review', blocked: 'Blocked', done: 'Done' };
+  const PRIORITY_LABEL = { high: 'High priority', med: 'Medium priority', low: 'Low priority' };
+
+  function formatDate(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  let token = localStorage.getItem('tms_token') || null;
+  let username = localStorage.getItem('tms_username') || '';
+  let tasks = [];
+  let editingId = null;
+  let authMode = 'login';
+
+  const authScreen = document.getElementById('authScreen');
+  const appScreen = document.getElementById('appScreen');
+  const authForm = document.getElementById('authForm');
+  const authError = document.getElementById('authError');
+  const authTitle = document.getElementById('authTitle');
+  const switchLink = document.getElementById('switchToRegister');
+
+  function api(path, opts = {}) {
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (token) opts.headers.Authorization = 'Bearer ' + token;
+    return fetch(API + path, opts).then(async (r) => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    });
+  }
+
+  function showApp() {
+    authScreen.style.display = 'none';
+    appScreen.style.display = 'block';
+    document.getElementById('whoami').textContent = username;
+    document.getElementById('avatar').textContent = username ? username[0].toUpperCase() : '';
+    loadTasks();
+  }
+  function showAuth() {
+    appScreen.style.display = 'none';
+    authScreen.style.display = 'block';
+  }
+
+  switchLink.addEventListener('click', () => {
+    authMode = authMode === 'login' ? 'register' : 'login';
+    authTitle.textContent = authMode === 'login' ? 'Log in' : 'Create account';
+    authForm.querySelector('button[type="submit"]').textContent = authMode === 'login' ? 'Log in' : 'Register';
+    switchLink.parentElement.firstChild.textContent = authMode === 'login' ? "Don't have an account? " : 'Already have an account? ';
+    switchLink.textContent = authMode === 'login' ? 'Register' : 'Log in';
+    authError.textContent = '';
+  });
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.textContent = '';
+    const u = document.getElementById('authUsername').value.trim();
+    const p = document.getElementById('authPassword').value;
+    try {
+      const data = await api('/api/auth/' + authMode, { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
+      token = data.token;
+      username = data.user.username;
+      localStorage.setItem('tms_token', token);
+      localStorage.setItem('tms_username', username);
+      authForm.reset();
+      showApp();
+    } catch (err) {
+      authError.textContent = err.message;
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    token = null; username = '';
+    localStorage.removeItem('tms_token');
+    localStorage.removeItem('tms_username');
+    showAuth();
+  });
+
+  // ---- Task board ----
+  const overlay = document.getElementById('overlay');
+  const taskForm = document.getElementById('taskForm');
+  const searchInput = document.getElementById('searchInput');
+
+  document.getElementById('newTaskBtn').addEventListener('click', () => openModal());
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  searchInput.addEventListener('input', render);
+
+  function openModal(task) {
+    editingId = task ? task.id : null;
+    document.getElementById('modalTitle').textContent = task ? 'Edit task' : 'New task';
+    document.getElementById('f-title').value = task ? task.title : '';
+    document.getElementById('f-desc').value = task ? task.description : '';
+    document.getElementById('f-priority').value = task ? task.priority : 'med';
+    document.getElementById('f-due').value = task && task.dueDate ? task.dueDate : '';
+    overlay.classList.add('open');
+    document.getElementById('f-title').focus();
+  }
+  function closeModal() { overlay.classList.remove('open'); taskForm.reset(); editingId = null; }
+
+  taskForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      title: document.getElementById('f-title').value.trim(),
+      description: document.getElementById('f-desc').value.trim(),
+      priority: document.getElementById('f-priority').value,
+      dueDate: document.getElementById('f-due').value || null
+    };
+    try {
+      if (editingId) await api('/api/tasks/' + editingId, { method: 'PUT', body: JSON.stringify(body) });
+      else await api('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
+      closeModal();
+      loadTasks();
+    } catch (err) { alert(err.message); }
+  });
+
+  async function loadTasks() {
+    try {
+      const data = await api('/api/tasks');
+      tasks = data.tasks;
+      render();
+      loadCounts();
+    } catch (err) {
+      if (err.message.includes('token')) { token = null; showAuth(); }
+    }
+  }
+
+  // Pulls the live per-column counts from the server (GET /api/tasks/counts/summary)
+  // so the numbers always reflect what's actually stored in the database.
+  async function loadCounts() {
+    try {
+      const counts = await api('/api/tasks/counts/summary');
+      STATUSES.forEach((s) => {
+        const badge = document.getElementById('count-' + s);
+        if (badge) badge.textContent = counts[s] || 0;
+      });
+    } catch (err) {
+      // non-critical — counts just won't refresh this cycle
+    }
+  }
+
+  async function moveTask(id, status) {
+    try {
+      await api('/api/tasks/' + id + '/status', { method: 'PATCH', body: JSON.stringify({ status }) });
+      loadTasks();
+    } catch (err) { alert(err.message); }
+  }
+  async function deleteTask(id, title) {
+    const sure = confirm('Delete "' + title + '"?\n\nThis cannot be undone.');
+    if (!sure) return;
+    try { await api('/api/tasks/' + id, { method: 'DELETE' }); loadTasks(); }
+    catch (err) { alert(err.message); }
+  }
+
+  function render() {
+    const q = searchInput.value.trim().toLowerCase();
+    STATUSES.forEach((status) => {
+      const container = document.getElementById('cards-' + status);
+      container.innerHTML = '';
+      const list = tasks.filter((t) => t.status === status)
+        .filter((t) => !q || t.title.toLowerCase().includes(q));
+      if (!list.length) {
+        const hint = document.createElement('div');
+        hint.className = 'empty-hint';
+        hint.textContent = 'Nothing here yet';
+        container.appendChild(hint);
+        return;
+      }
+      list.forEach((t) => container.appendChild(renderCard(t)));
+    });
+  }
+
+  function renderCard(t) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.priority = t.priority;
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = t.title;
+    card.appendChild(title);
+
+    if (t.description) {
+      const desc = document.createElement('div');
+      desc.className = 'card-desc';
+      desc.textContent = t.description;
+      card.appendChild(desc);
+    }
+
+    const foot = document.createElement('div');
+    foot.className = 'card-foot';
+    const prioLabel = document.createElement('span');
+    prioLabel.className = 'prio-label';
+    prioLabel.textContent = PRIORITY_LABEL[t.priority] + (t.dueDate ? ' · due ' + formatDate(t.dueDate) : '');
+    foot.appendChild(prioLabel);
+    card.appendChild(foot);
+
+    const actions = document.createElement('div');
+    actions.className = 'card-actions';
+
+    const select = document.createElement('select');
+    STATUSES.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = LABEL[s];
+      if (s === t.status) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', () => moveTask(t.id, select.value));
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-ghost'; editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => openModal(t));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-ghost'; delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteTask(t.id, t.title));
+
+    actions.appendChild(select);
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+    return card;
+  }
+
+  // Boot
+  if (token) showApp(); else showAuth();
+})();
+</script>
+</body>
+</html>
